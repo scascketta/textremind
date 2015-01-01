@@ -76,6 +76,11 @@ func crossOriginMiddleware(fn func(http.ResponseWriter, *http.Request)) http.Han
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST")
 			w.Header().Set("Access-Control-Max-Age", strconv.Itoa(60*60*6))
 			w.Header().Set("Access-Control-Allow-Headers", "CONTENT-TYPE, ACCEPT")
+			// FIXME: for some reason, the `Access-Control-Request-Headers` never seems to exist in requests
+			// if v, ok := r.Header["Access-Control-Request-Headers"]; ok {
+			// 	w.Header().Set("Access-Control-Allow-Headers", v[0])
+			// }
+			return
 		}
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		fn(w, r)
