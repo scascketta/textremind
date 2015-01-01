@@ -60,9 +60,11 @@ var requests = {
         xhr.open(method, url, true);
 
         if (headers) {
-            headers.forEach(function(value, headerName) {
-                xhr.setRequestHeader(headerName, value);
-            });
+            for (var attr in headers) {
+               if (headers.hasOwnProperty(attr)) {
+                   xhr.setRequestHeader(attr, headers[attr]);
+               }
+            }
         }
 
         var requestData = data !== undefined && !isGetRequest ? JSON.stringify(data) : undefined;
