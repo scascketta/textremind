@@ -1,0 +1,27 @@
+{
+  "name": "textremind",
+  "version": "0.0.1",
+  "description": "Simple, free text reminders.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/scascketta/TextReminders.git"
+  },
+  "dependencies": {
+    "es6-promise": "^2.0.1",
+    "fetch": "git://github.com/github/fetch",
+    "knockout": "^3.2.0",
+    "knockout.validation": "^2.0.0-pre.3",
+    "sugar": "^1.4.1",
+    "when": "^3.6.4"
+  },
+  "devDependencies": {
+    "browserify": "~5.9.1",
+    "gulp": "~3.8.9",
+    "gulp-util": "~3.0.0",
+    "gulp-clean": "~0.3.1",
+    "gulp-cssmin": "~0.1.6",
+    "gulp-concat": "~2.3.4",
+    "gulp-webserver": "~0.4.0",
+    "vinyl-source-stream": "~0.1.1"
+  }
+}

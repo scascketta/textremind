@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Text Reminders</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="css/bundle.css">
+    <link href='//fonts.googleapis.com/css?family=Raleway:400,300,600' rel='stylesheet' type='text/css'>
+    <link href="//maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <h1><a href="/">Text Reminders</a></h1>
+        <p>Send yourself free reminders to your phone with a text message.</p>
+
+        <form id="textremind" data-bind="submit: schedule">
+            <div class="row">
+                <label for="phoneInput">your phone number</label>
+                <p class="validationError" data-bind="validationMessage: inputNumber"></p>
+                <input type="text" placeholder="1234567890" id="phoneInput" data-bind="value: inputNumber">
+                <p data-bind="visible: numberVerified()"><i class="fa fa-check-circle"></i> number verified!</p>
+
+                <!-- new number, need to verify -->
+                <div data-bind="visible: !numberVerified() && inputNumber().length > 0">
+                    <p>to verify your phone number, we need to send you a verification code.</p>
+                    <button class="button-primary" data-bind="click: sendCode">Send Code</button>
+                    <p data-bind="visible: codeSent()"><i class="fa fa-send"></i> code sent! please enter it below</p>
+                    <div data-bind="visible: codeSent()">
+                        <label for="codeInput">verification code</label>
+                        <input type="text" id="codeInput" data-bind="value: inputCode">
+                    </div>
+                    <p data-bind="visible: codeMatches()"><i class="fa fa-check-circle"></i> verification code matches!</p>
+                </div>
+
+                <!-- new number verified, need to set password for number -->
+                <div data-bind="visible: codeMatches()">
+                    <p>if you want to send yourself reminders without having to verify again, please set a password. otherwise, skip this part.</p>
+                    <label for="setPasswordInput">set your new password below</label>
+                    <input type="password" id="setPasswordInput" data-bind="value: inputSetPassword">
+                    <button class="button" data-bind="click: setPassword">Save Password</button>
+                    <p data-bind="visible: passwordSet()"><i class="fa fa-check-circle"></i> password set!</p>
+                </div>
+            </div>
+
+            <!-- number previously verified, need to authenticate -->
+            <div class="row" data-bind="visible: numberVerified()">
+                <label for="passwordInput">your password</label>
+                <p class="validationError" data-bind="validationMessage: inputPassword"></p>
+                <input type="password" id="passwordInput" data-bind="value: inputPassword">
+                <p data-bind="visible: passwordMatches()"><i class="fa fa-check-circle"></i> password correct!</p>
+            </div>
+
+            <!-- set time of delivery -->
+            <div class="row">
+                <label for="timeInput">when you want to be reminded</label>
+                <p class="validationError" data-bind="validationMessage: inputTime"></p>
+                <input type="text" placeholder="monday 9:41am" data-bind="value: inputTime">
+                <span data-bind="visible: inputTime.isValid(), text: displayTime"></span>
+            </div>
+
+            <!-- set message body -->
+            <div class="row">
+                <label for="messageInput">your reminder</label>
+                <p class="validationError" data-bind="validationMessage: inputMessage"></p>
+                <textarea placeholder="Remind HAL to open the pod bay doors..." id="messageInput" data-bind="value: inputMessage"></textarea>
+            </div>
+
+            <p data-bind="visible: ready">We will send a text to <span data-bind="text: inputNumber"></span> on <span data-bind="text: displayTime"></span> with your message.</p>.
+            <input type="submit" class="button" value="Schedule reminder" data-bind="enable: ready(), css: { 'button-primary': ready() }">
+        </form>
+    </div>
+
+    <script type="text/javascript" src="js/bundle.js"></script>
+</body>
+</html>
