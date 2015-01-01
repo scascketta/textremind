@@ -38,11 +38,11 @@ func main() {
 	// middlewares add necessary headers (for CORS, content-type)
 	middlewares := []Middleware{jsonMiddleware, crossOriginMiddleware}
 
-	http.HandleFunc("/schedule", wrapMiddlewares(middlewares, scheduleHandler))
+	http.HandleFunc("/schedule", crossOriginMiddleware(scheduleHandler))
 	http.HandleFunc("/check", wrapMiddlewares(middlewares, checkHandler))
-	http.HandleFunc("/send_verification", wrapMiddlewares(middlewares, sendVerificationHandler))
+	http.HandleFunc("/send_verification", crossOriginMiddleware(sendVerificationHandler))
 	http.HandleFunc("/check_verification", wrapMiddlewares(middlewares, checkVerificationHandler))
-	http.HandleFunc("/set_password", wrapMiddlewares(middlewares, setPasswordHandler))
+	http.HandleFunc("/set_password", crossOriginMiddleware(setPasswordHandler))
 	http.HandleFunc("/check_password", wrapMiddlewares(middlewares, checkPasswordHandler))
 
 	dbglogger.Printf("Server listening on port %d...\n", PORT)

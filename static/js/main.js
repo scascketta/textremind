@@ -3,8 +3,6 @@ var kov = require('knockout.validation');
 var when = require('when');
 var sugar  = require('sugar');
 var requests  = require('./requests');
-require('es6-promise').polyfill();
-require('fetch');
 
 var BASE_URL = 'http://127.0.0.1:8000';
 
@@ -13,20 +11,19 @@ ko.validation.configure({
 });
 
 // NOTE: https://github.com/knockout/knockout/wiki/Asynchronous-Dependent-Observables
-function asyncComputed(evaluator, owner, dependencies) {
+function asyncComputed(evaluator, dependencies) {
     var result = ko.observable();
 
     ko.computed(function() {
         var ready = true;
         dependencies.forEach(function(e) {
-            if (!e()) {
+            if (!e() || !e.isValid()) {
                 ready = false;
             }
         });
         if (!ready)
             return;
-        var promise = evaluator.call(owner);
-        promise.done(result);
+        evaluator().done(result);
     });
 
     return result;
@@ -51,8 +48,11 @@ function TextRemind() {
     });
 
     self.numberVerified = asyncComputed(function() {
-        return requests.post(BASE_URL + '/check', { number: self.inputNumber() }, {'Accept': 'application/json'});
-    }, self, [self.inputNumber]);
+        return requests.postJSON(BASE_URL + '/check', { number: self.inputNumber() })
+            .then(function(res) {
+                return res.verified;
+            });
+    }, [self.inputNumber]);
 
     self.inputTime = ko.observable('').extend({
         required: true,
@@ -66,116 +66,99 @@ function TextRemind() {
     });
 
     self.inputPassword = ko.observable('').extend({
-        required: true,
+        required: false,
         minLength: 6,
         maxLength: 20
     });
-    self.passwordMatches = ko.observable(false);
-    ko.computed(function() {
-        if (self.inputPassword().length == 0)return;
-
-        fetch(BASE_URL + '/check_password', {
-            method: 'post',
-            headers: { 'Accept': 'application/json' },  
-            body: JSON.stringify({ number: self.inputNumber(), password: self.inputPassword() })
-        }).then(function(res) { return res.json() })
-        .then(function(json) {
-            self.passwordMatches(json['matches']);
-        });
-    });
+    self.passwordMatches = asyncComputed(function() {
+        var data = { number: self.inputNumber(), password: self.inputPassword() };
+        return requests.postJSON(BASE_URL + '/check_password', data)
+            .then(function(res) {
+                return res.matches;
+            });
+    }, [self.inputNumber, self.inputPassword]);
 
     self.codeSent = ko.observable(false);
     self.inputCode = ko.observable('').extend({
-        required: true,
+        required: false,
         minLength: 6,
         maxLength: 6
     });
-    self.codeMatches = ko.observable(false);
-    ko.computed(function() {
-        if (self.inputCode().length == 0 || self.inputNumber().length == 0) return;
-
-        fetch(BASE_URL + '/check_verification', {
-            method: 'post',
-            headers: { 'Accept': 'application/json' },  
-            body: JSON.stringify({ number: self.inputNumber(), code: self.inputCode() })
-        }).then(function(res) { return res.json(); })
-        .then(function(json) {
-            self.codeMatches(json['valid']);
-        });
-    });
+    self.codeMatches = asyncComputed(function() {
+        var data = { number: self.inputNumber(), code: self.inputCode() };
+        return requests.postJSON(BASE_URL + '/check_verification', data)
+            .then(function(res) {
+                return res.valid;
+            });
+    }, [self.inputNumber, self.inputCode]);
 
     self.passwordSet = ko.observable(false);
     self.inputSetPassword = ko.observable('').extend({
-        required: true,
+        required: false,
         minLength: 6,
         maxLength: 20
     });
 
     self.displayTime = ko.computed(function() {
         return Date.future(self.inputTime()).full();
-    }, this);
+    });
+
+    self.messageSent = ko.observable(false);
 
     self.errors = ko.validation.group(this);
 
     self.ready = ko.computed(function() {
-        return self.errors().length == 0;
-    }, this);
-};
+        return self.errors().length === 0 && (self.passwordMatches() || self.codeMatches());
+    });
+}
 
 
-TextRemind.prototype.schedule = function() {
+TextRemind.prototype.schedule = function schedule() {
     var self = this;
 
-    var data = {
+    requests.postJSON(BASE_URL + '/schedule', {
         body: self.inputMessage(),
         to: self.inputNumber(),
         time: Date.future(self.inputTime()).valueOf() / 1000
-    };
-
-    fetch(BASE_URL + '/schedule', {
-        method: 'post',
-        headers: { 'Accept': 'application/json' },
-        body: JSON.stringify(data)
-    }).then(function(res) {
-        return res.json();
-    }).then(function(json) {
-        console.log('res.json().data: ', json);
-    }).catch(function(ex) {
-        console.log('error!: ', ex);
+    })
+    .then(function(res) {
+        self.messageSent(true);
+    })
+    .catch(function(e) {
+        self.messageSent(false);
     })
 };
 
-TextRemind.prototype.sendCode = function() {
+TextRemind.prototype.sendCode = function sendCode() {
     var self = this;
     if (self.numberVerified()) return;
 
-    fetch(BASE_URL + '/send_verification', {
-        method: 'post',
-        headers: { 'Accept': 'application/json' },
-        body: JSON.stringify({ number: self.inputNumber() })
-    }).then(function(res) {
+    requests.postJSON(BASE_URL + '/send_verification', {
+        number: self.inputNumber()
+    })
+    .then(function(res) {
         self.codeSent(true);
-    }).catch(function(e) {
-        console.log('problem while sending verification code: ', e);
+    })
+    .catch(function(e) {
         self.codeSent(false);
+        console.error('problem while sending verification code: ', e);
     });
-}
+};
 
-TextRemind.prototype.setPassword = function() {
+TextRemind.prototype.setPassword = function setPassword() {
     var self = this;
-    if (self.inputSetPassword().length == 0) return;
+    if (!self.inputSetPassword.isValid()) return;
 
-    fetch(BASE_URL + '/set_password', {
-        method: 'post',
-        headers: { 'Accept': 'application/json' },
-        body: JSON.stringify({ number: self.inputNumber(), password: self.inputSetPassword() })
+    requests.postJSON(BASE_URL + '/set_password', {
+        number: self.inputNumber(),
+        password: self.inputSetPassword()
     }).then(function(res) {
         self.passwordSet(true);
     }).catch(function(e) {
-        console.log('problem while setting password: ', e);
         self.passwordSet(false);
+        console.error('problem while setting password: ', e);
     });
-}
+};
 
 var tr = window.tr = new TextRemind();
 

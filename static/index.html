@@ -21,7 +21,7 @@
                 <p data-bind="visible: numberVerified()"><i class="fa fa-check-circle"></i> number verified!</p>
 
                 <!-- new number, need to verify -->
-                <div data-bind="visible: !numberVerified() && inputNumber().length > 0">
+                <div data-bind="visible: !numberVerified() && inputNumber.isValid()">
                     <p>to verify your phone number, we need to send you a verification code.</p>
                     <button class="button-primary" data-bind="click: sendCode">Send Code</button>
                     <p data-bind="visible: codeSent()"><i class="fa fa-send"></i> code sent! please enter it below</p>
@@ -67,6 +67,7 @@
 
             <p data-bind="visible: ready">We will send a text to <span data-bind="text: inputNumber"></span> on <span data-bind="text: displayTime"></span> with your message.</p>.
             <input type="submit" class="button" value="Schedule reminder" data-bind="enable: ready(), css: { 'button-primary': ready() }">
+            <p data-bind="visible: messageSent()"><i class="fa fa-send"></i> message scheduled!</p>
         </form>
     </div>
 

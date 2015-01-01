@@ -110,4 +110,13 @@ requests.patch = requests.send.bind(requests, 'PATCH');
 requests.post = requests.send.bind(requests, 'POST');
 requests.delete = requests.send.bind(requests, 'DELETE');
 
+requests.postJSON = function(url, data, headers) {
+    if (!headers) {
+        headers = {'Accept': 'application/json'};
+    } else if (!headers['Accept']) {
+        headers['Accept'] = 'application/json';
+    }
+    return requests.post(url, data, headers)
+};
+
 module.exports = requests;
