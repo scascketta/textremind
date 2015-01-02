@@ -70,13 +70,6 @@ function TextRemind() {
         minLength: 6,
         maxLength: 20
     });
-    self.passwordMatches = asyncComputed(function() {
-        var data = { number: self.phoneNumber(), password: self.password() };
-        return requests.postJSON(BASE_URL + '/check_password', data)
-            .then(function(res) {
-                return res.matches;
-            });
-    }, [self.phoneNumber, self.password, self.numberVerified]);
     self.passwordSet = ko.observable(false);
 
     self.codeSent = ko.observable(false);
@@ -98,11 +91,12 @@ function TextRemind() {
     });
 
     self.messageSent = ko.observable(false);
+    self.scheduleError = ko.observable('');
 
     self.errors = ko.validation.group(this);
 
     self.ready = ko.computed(function() {
-        return self.errors().length === 0 && (self.passwordMatches() || self.codeMatches());
+        return self.errors().length === 0 && (self.numberVerified() || self.codeMatches());
     });
 }
 
@@ -112,14 +106,18 @@ TextRemind.prototype.schedule = function schedule() {
 
     requests.postJSON(BASE_URL + '/schedule', {
         body: self.message(),
+        password: self.password(),
         to: self.phoneNumber(),
         time: Date.future(self.deliveryTime()).valueOf() / 1000
     })
     .then(function(res) {
         self.messageSent(true);
+        self.scheduleError('');
     })
     .catch(function(e) {
+        var res = JSON.parse(e);
         self.messageSent(false);
+        self.scheduleError(res['message']);
     })
 };
 

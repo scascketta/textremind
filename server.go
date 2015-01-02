@@ -95,9 +95,10 @@ func writeJSON(w http.ResponseWriter, msg map[string]string, code int) {
 }
 
 type ScheduleMsgStruct struct {
-	Body string `json:"body"`
-	To   string `json:"to"`
-	Time int    `json:"time"`
+	Body     string `json:"body"`
+	To       string `json:"to"`
+	Time     int    `json:"time"`
+	Password string `json:"password"`
 }
 
 // Handle requests to schedule messages
@@ -109,6 +110,18 @@ func scheduleHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		errlogger.Println(err)
 	}
+
+	matches, err := CheckPassword(msg.To, msg.Password)
+	if !matches {
+		writeJSON(w, map[string]string{"type": "bad_request", "message": "Password doesn't match."}, http.StatusBadRequest)
+		return
+	}
+
+	if err != nil {
+		errlogger.Println(err)
+		writeJSON(w, map[string]string{"type": "api_error", "message": "Something went wrong while scheduling the message."}, http.StatusInternalServerError)
+	}
+
 	err = ScheduleMessage(msg)
 	if err != nil {
 		errlogger.Println(err)

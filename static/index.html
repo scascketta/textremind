@@ -47,7 +47,6 @@
                 <label for="passwordInput">your password</label>
                 <p class="validationError" data-bind="validationMessage: password"></p>
                 <input type="password" id="passwordInput" data-bind="value: password">
-                <p data-bind="visible: passwordMatches()"><i class="fa fa-check-circle"></i> password correct!</p>
             </div>
 
             <!-- set time of delivery -->
@@ -68,6 +67,7 @@
             <p data-bind="visible: ready">We will send a text to <span data-bind="text: phoneNumber"></span> on <span data-bind="text: displayTime"></span> with your message.</p>.
             <input type="submit" class="button" value="Schedule reminder" data-bind="enable: ready(), css: { 'button-primary': ready() }">
             <p data-bind="visible: messageSent()"><i class="fa fa-send"></i> message scheduled!</p>
+            <p class="validationError" data-bind="text: scheduleError"></p>
         </form>
     </div>
 
