@@ -16,18 +16,18 @@
         <form id="textremind" data-bind="submit: schedule">
             <div class="row">
                 <label for="phoneInput">your phone number</label>
-                <p class="validationError" data-bind="validationMessage: inputNumber"></p>
-                <input type="text" placeholder="1234567890" id="phoneInput" data-bind="value: inputNumber">
+                <p class="validationError" data-bind="validationMessage: phoneNumber"></p>
+                <input type="text" placeholder="1234567890" id="phoneInput" data-bind="value: phoneNumber">
                 <p data-bind="visible: numberVerified()"><i class="fa fa-check-circle"></i> number verified!</p>
 
                 <!-- new number, need to verify -->
-                <div data-bind="visible: !numberVerified() && inputNumber.isValid()">
+                <div data-bind="visible: !numberVerified() && phoneNumber.isValid()">
                     <p>to verify your phone number, we need to send you a verification code.</p>
                     <button class="button-primary" data-bind="click: sendCode">Send Code</button>
                     <p data-bind="visible: codeSent()"><i class="fa fa-send"></i> code sent! please enter it below</p>
                     <div data-bind="visible: codeSent()">
                         <label for="codeInput">verification code</label>
-                        <input type="text" id="codeInput" data-bind="value: inputCode">
+                        <input type="text" id="codeInput" data-bind="value: code">
                     </div>
                     <p data-bind="visible: codeMatches()"><i class="fa fa-check-circle"></i> verification code matches!</p>
                 </div>
@@ -36,7 +36,7 @@
                 <div data-bind="visible: codeMatches()">
                     <p>if you want to send yourself reminders without having to verify again, please set a password. otherwise, skip this part.</p>
                     <label for="setPasswordInput">set your new password below</label>
-                    <input type="password" id="setPasswordInput" data-bind="value: inputSetPassword">
+                    <input type="password" id="setPasswordInput" data-bind="value: password">
                     <button class="button" data-bind="click: setPassword">Save Password</button>
                     <p data-bind="visible: passwordSet()"><i class="fa fa-check-circle"></i> password set!</p>
                 </div>
@@ -45,27 +45,27 @@
             <!-- number previously verified, need to authenticate -->
             <div class="row" data-bind="visible: numberVerified()">
                 <label for="passwordInput">your password</label>
-                <p class="validationError" data-bind="validationMessage: inputPassword"></p>
-                <input type="password" id="passwordInput" data-bind="value: inputPassword">
+                <p class="validationError" data-bind="validationMessage: password"></p>
+                <input type="password" id="passwordInput" data-bind="value: password">
                 <p data-bind="visible: passwordMatches()"><i class="fa fa-check-circle"></i> password correct!</p>
             </div>
 
             <!-- set time of delivery -->
             <div class="row">
                 <label for="timeInput">when you want to be reminded</label>
-                <p class="validationError" data-bind="validationMessage: inputTime"></p>
-                <input type="text" placeholder="monday 9:41am" data-bind="value: inputTime">
-                <span data-bind="visible: inputTime.isValid(), text: displayTime"></span>
+                <p class="validationError" data-bind="validationMessage: deliveryTime"></p>
+                <input type="text" placeholder="monday 9:41am" data-bind="value: deliveryTime">
+                <span data-bind="visible: deliveryTime.isValid(), text: displayTime"></span>
             </div>
 
             <!-- set message body -->
             <div class="row">
                 <label for="messageInput">your reminder</label>
-                <p class="validationError" data-bind="validationMessage: inputMessage"></p>
-                <textarea placeholder="Remind HAL to open the pod bay doors..." id="messageInput" data-bind="value: inputMessage"></textarea>
+                <p class="validationError" data-bind="validationMessage: message"></p>
+                <textarea placeholder="Remind HAL to open the pod bay doors..." id="messageInput" data-bind="value: message"></textarea>
             </div>
 
-            <p data-bind="visible: ready">We will send a text to <span data-bind="text: inputNumber"></span> on <span data-bind="text: displayTime"></span> with your message.</p>.
+            <p data-bind="visible: ready">We will send a text to <span data-bind="text: phoneNumber"></span> on <span data-bind="text: displayTime"></span> with your message.</p>.
             <input type="submit" class="button" value="Schedule reminder" data-bind="enable: ready(), css: { 'button-primary': ready() }">
             <p data-bind="visible: messageSent()"><i class="fa fa-send"></i> message scheduled!</p>
         </form>

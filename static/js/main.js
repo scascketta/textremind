@@ -32,7 +32,7 @@ function asyncComputed(evaluator, dependencies) {
 function TextRemind() {
     var self = this;
 
-    self.inputMessage = ko.observable('').extend({
+    self.message = ko.observable('').extend({
         required: true,
         maxLength: { 
             params: 160,
@@ -41,66 +41,60 @@ function TextRemind() {
     });
 
     // TODO: normalize phone number to 10-digit plain stuff in different cases
-    self.inputNumber = ko.observable('').extend({
+    self.phoneNumber = ko.observable('').extend({
         required: true,
         minLength: 10,
         maxLength: 10
     });
 
     self.numberVerified = asyncComputed(function() {
-        return requests.postJSON(BASE_URL + '/check', { number: self.inputNumber() })
+        return requests.postJSON(BASE_URL + '/check', { number: self.phoneNumber() })
             .then(function(res) {
                 return res.verified;
             });
-    }, [self.inputNumber]);
+    }, [self.phoneNumber]);
 
-    self.inputTime = ko.observable('').extend({
+    self.deliveryTime = ko.observable('').extend({
         required: true,
         validation: {
-            validator: function(inputTime, _) {
-                return Date.future(inputTime).isValid();
+            validator: function(deliveryTime, _) {
+                return Date.future(deliveryTime).isValid();
             },
             message: "Specified time is not valid or is in the past.",
             params: null
         }
     });
 
-    self.inputPassword = ko.observable('').extend({
+    self.password = ko.observable('').extend({
         required: false,
         minLength: 6,
         maxLength: 20
     });
     self.passwordMatches = asyncComputed(function() {
-        var data = { number: self.inputNumber(), password: self.inputPassword() };
+        var data = { number: self.phoneNumber(), password: self.password() };
         return requests.postJSON(BASE_URL + '/check_password', data)
             .then(function(res) {
                 return res.matches;
             });
-    }, [self.inputNumber, self.inputPassword]);
+    }, [self.phoneNumber, self.password, self.numberVerified]);
+    self.passwordSet = ko.observable(false);
 
     self.codeSent = ko.observable(false);
-    self.inputCode = ko.observable('').extend({
+    self.code = ko.observable('').extend({
         required: false,
         minLength: 6,
         maxLength: 6
     });
     self.codeMatches = asyncComputed(function() {
-        var data = { number: self.inputNumber(), code: self.inputCode() };
+        var data = { number: self.phoneNumber(), code: self.code() };
         return requests.postJSON(BASE_URL + '/check_verification', data)
             .then(function(res) {
                 return res.valid;
             });
-    }, [self.inputNumber, self.inputCode]);
-
-    self.passwordSet = ko.observable(false);
-    self.inputSetPassword = ko.observable('').extend({
-        required: false,
-        minLength: 6,
-        maxLength: 20
-    });
+    }, [self.phoneNumber, self.code]);
 
     self.displayTime = ko.computed(function() {
-        return Date.future(self.inputTime()).full();
+        return Date.future(self.deliveryTime()).full();
     });
 
     self.messageSent = ko.observable(false);
@@ -117,9 +111,9 @@ TextRemind.prototype.schedule = function schedule() {
     var self = this;
 
     requests.postJSON(BASE_URL + '/schedule', {
-        body: self.inputMessage(),
-        to: self.inputNumber(),
-        time: Date.future(self.inputTime()).valueOf() / 1000
+        body: self.message(),
+        to: self.phoneNumber(),
+        time: Date.future(self.deliveryTime()).valueOf() / 1000
     })
     .then(function(res) {
         self.messageSent(true);
@@ -134,7 +128,7 @@ TextRemind.prototype.sendCode = function sendCode() {
     if (self.numberVerified()) return;
 
     requests.postJSON(BASE_URL + '/send_verification', {
-        number: self.inputNumber()
+        number: self.phoneNumber()
     })
     .then(function(res) {
         self.codeSent(true);
@@ -147,11 +141,11 @@ TextRemind.prototype.sendCode = function sendCode() {
 
 TextRemind.prototype.setPassword = function setPassword() {
     var self = this;
-    if (!self.inputSetPassword.isValid()) return;
+    if (!self.password.isValid()) return;
 
     requests.postJSON(BASE_URL + '/set_password', {
-        number: self.inputNumber(),
-        password: self.inputSetPassword()
+        number: self.phoneNumber(),
+        password: self.password()
     }).then(function(res) {
         self.passwordSet(true);
     }).catch(function(e) {
