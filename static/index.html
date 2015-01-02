@@ -16,12 +16,12 @@
         <form id="textremind" data-bind="submit: schedule">
             <div class="row">
                 <label for="phoneInput">your phone number</label>
-                <p class="validationError" data-bind="validationMessage: phoneNumber"></p>
-                <input type="text" placeholder="1234567890" id="phoneInput" data-bind="value: phoneNumber">
+                <p class="validationError" data-bind="validationMessage: inputNumber"></p>
+                <input type="text" placeholder="1234567890" id="phoneInput" data-bind="value: inputNumber">
                 <p data-bind="visible: numberVerified()"><i class="fa fa-check-circle"></i> number verified!</p>
 
                 <!-- new number, need to verify -->
-                <div data-bind="visible: !numberVerified() && phoneNumber.isValid()">
+                <div data-bind="visible: !numberVerified() && inputNumber.isValid()">
                     <p>to verify your phone number, we need to send you a verification code.</p>
                     <button class="button-primary" data-bind="click: sendCode">Send Code</button>
                     <p data-bind="visible: codeSent()"><i class="fa fa-send"></i> code sent! please enter it below</p>

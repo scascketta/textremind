@@ -41,11 +41,16 @@ function TextRemind() {
     });
 
     // TODO: normalize phone number to 10-digit plain stuff in different cases
-    self.phoneNumber = ko.observable('').extend({
+    self.inputNumber = ko.observable('').extend({
         required: true,
         minLength: 10,
-        maxLength: 10
+        maxLength: 14
     });
+    self.phoneNumber = ko.computed(function() {
+        // strip non-digits
+        return self.inputNumber().replace(/\D/g,'');
+    });
+
 
     self.numberVerified = asyncComputed(function() {
         return requests.postJSON(BASE_URL + '/check', { number: self.phoneNumber() })
