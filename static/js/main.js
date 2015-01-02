@@ -109,12 +109,10 @@ TextRemind.prototype.schedule = function schedule() {
         password: self.password(),
         to: self.phoneNumber(),
         time: Date.future(self.deliveryTime()).valueOf() / 1000
-    })
-    .then(function(res) {
+    }).then(function(res) {
         self.messageSent(true);
         self.scheduleError('');
-    })
-    .catch(function(e) {
+    }).catch(function(e) {
         var res = JSON.parse(e);
         self.messageSent(false);
         self.scheduleError(res['message']);
@@ -127,11 +125,9 @@ TextRemind.prototype.sendCode = function sendCode() {
 
     requests.postJSON(BASE_URL + '/send_verification', {
         number: self.phoneNumber()
-    })
-    .then(function(res) {
+    }).then(function(res) {
         self.codeSent(true);
-    })
-    .catch(function(e) {
+    }).catch(function(e) {
         self.codeSent(false);
         console.error('problem while sending verification code: ', e);
     });
