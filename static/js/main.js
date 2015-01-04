@@ -113,7 +113,7 @@ TextRemind.prototype.schedule = function schedule() {
         body: self.message(),
         password: self.password(),
         to: self.phoneNumber(),
-        time: Date.future(self.deliveryTime()).valueOf() / 1000
+        time: '' + Date.future(self.deliveryTime()).valueOf() / 1000
     }).then(function(res) {
         self.messageSent(true);
         self.scheduleError('');
@@ -126,6 +126,7 @@ TextRemind.prototype.schedule = function schedule() {
 
 TextRemind.prototype.sendCode = function sendCode() {
     var self = this;
+    // FIXME: use a button to send the code, and disable the button if number is verified
     if (self.numberVerified()) return;
 
     requests.postJSON(BASE_URL + '/send_verification', {

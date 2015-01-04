@@ -1,263 +1,145 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/garyburd/redigo/redis"
-	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
 	"os"
-	"strconv"
 	"time"
 )
 
 const (
-	PORT int = 8000
+	// Would make this an int to be proper, but it's only used as a string
+	PORT = "8000"
+
+	ERR_S                = "Something went wrong while "
+	SCHEDULE_MSG_ERR_S   = ERR_S + "scheduling the message."
+	VERIFY_ERR_S         = ERR_S + "checking if phone number is verified."
+	SEND_VERIFY_ERR_S    = ERR_S + "sending verification code."
+	CHECK_VERIFY_ERR_S   = ERR_S + "checking verification code."
+	SET_PASSWORD_ERR_S   = ERR_S + "setting password."
+	CHECK_PASSWORD_ERR_S = ERR_S + "checking password."
+	DECODE_ERR_S         = ERR_S + "decoding request body."
 )
 
 var (
-	// store the config vars in some local file (like `.env`) and to set them use:
-	// `export $(cat .env | xargs)`
-	TWILIO_ACCOUNT_SID string = os.Getenv("TWILIO_ACCOUNT_SID")
-	TWILIO_AUTH_TOKEN  string = os.Getenv("TWILIO_AUTH_TOKEN")
-	TWILIO_NUMBER      string = os.Getenv("TWILIO_NUMBER")
-	TWILIO_BASE_URL    string = fmt.Sprintf("https://api.twilio.com/2010-04-01/Accounts/%s/Messages.json", TWILIO_ACCOUNT_SID)
-
-	// format be like: `date time file:line:`
 	dbglogger *log.Logger = log.New(os.Stdout, "[DBG] ", log.LstdFlags|log.Lshortfile)
 	errlogger *log.Logger = log.New(os.Stderr, "[ERR] ", log.LstdFlags|log.Lshortfile)
 )
 
 func main() {
+	// Seed PRNG for generating verification codes
 	rand.Seed(time.Now().UTC().UnixNano())
+
 	// Scheduled messages are dispatched in a new goroutine
 	go DispatchMessages()
 
-	// middlewares add necessary headers (for CORS, content-type)
-	middlewares := []Middleware{jsonMiddleware, crossOriginMiddleware}
+	http.HandleFunc("/schedule", corsMiddleware(decodeJSONMiddleware(scheduleHandler)))
+	http.HandleFunc("/check", corsMiddleware(decodeJSONMiddleware(checkHandler)))
+	http.HandleFunc("/send_verification", corsMiddleware(decodeJSONMiddleware(sendVerificationHandler)))
+	http.HandleFunc("/check_verification", corsMiddleware(decodeJSONMiddleware(checkVerificationHandler)))
+	http.HandleFunc("/set_password", corsMiddleware(decodeJSONMiddleware(setPasswordHandler)))
+	http.HandleFunc("/check_password", corsMiddleware(decodeJSONMiddleware(checkPasswordHandler)))
 
-	http.HandleFunc("/schedule", crossOriginMiddleware(scheduleHandler))
-	http.HandleFunc("/check", wrapMiddlewares(middlewares, checkHandler))
-	http.HandleFunc("/send_verification", crossOriginMiddleware(sendVerificationHandler))
-	http.HandleFunc("/check_verification", wrapMiddlewares(middlewares, checkVerificationHandler))
-	http.HandleFunc("/set_password", crossOriginMiddleware(setPasswordHandler))
-	http.HandleFunc("/check_password", wrapMiddlewares(middlewares, checkPasswordHandler))
-
-	dbglogger.Printf("Server listening on port %d...\n", PORT)
-	http.ListenAndServe(":"+strconv.Itoa(PORT), nil)
-}
-
-// Middleware represents a function that wraps an http.HandlerFunc
-type Middleware func(func(http.ResponseWriter, *http.Request)) http.HandlerFunc
-
-// Wrap and return handler with wrappers in middlewares
-func wrapMiddlewares(middlewares []Middleware, handler func(http.ResponseWriter, *http.Request)) http.HandlerFunc {
-	wrapped := handler
-	for _, middleware := range middlewares {
-		wrapped = middleware(wrapped)
-	}
-	return wrapped
-}
-
-// Adds `application/json` content-type header to response
-func jsonMiddleware(fn func(http.ResponseWriter, *http.Request)) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		fn(w, r)
-	}
-}
-
-// Adds `Access-Control-*` headers to response
-func crossOriginMiddleware(fn func(http.ResponseWriter, *http.Request)) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == "OPTIONS" {
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST")
-			w.Header().Set("Access-Control-Max-Age", strconv.Itoa(60*60*6))
-			w.Header().Set("Access-Control-Allow-Headers", "CONTENT-TYPE, ACCEPT")
-			// FIXME: for some reason, the `Access-Control-Request-Headers` never seems to exist in requests
-			// if v, ok := r.Header["Access-Control-Request-Headers"]; ok {
-			// 	w.Header().Set("Access-Control-Allow-Headers", v[0])
-			// }
-			return
-		}
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		fn(w, r)
-	}
-}
-
-// Write msg in JSON to response with an HTTP code
-func writeJSON(w http.ResponseWriter, msg map[string]string, code int) {
-	w.WriteHeader(code)
-	b, _ := json.Marshal(msg)
-	w.Write(b)
-}
-
-type ScheduleMsgStruct struct {
-	Body     string `json:"body"`
-	To       string `json:"to"`
-	Time     int    `json:"time"`
-	Password string `json:"password"`
+	dbglogger.Printf("Server listening on port %s...\n", PORT)
+	http.ListenAndServe(":"+PORT, nil)
 }
 
 // Handle requests to schedule messages
-func scheduleHandler(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
-	data, _ := ioutil.ReadAll(r.Body)
-	msg := ScheduleMsgStruct{}
-	err := json.Unmarshal([]byte(data), &msg)
+func scheduleHandler(w http.ResponseWriter, r *http.Request, data map[string]string) {
+	matches, err := CheckPassword(data["to"], data["password"])
 	if err != nil {
 		errlogger.Println(err)
+		writeJSONError(w, SCHEDULE_MSG_ERR_S, http.StatusInternalServerError)
+		return
 	}
-
-	matches, err := CheckPassword(msg.To, msg.Password)
 	if !matches {
-		writeJSON(w, map[string]string{"type": "bad_request", "message": "Password doesn't match."}, http.StatusBadRequest)
+		writeJSONError(w, "Password doesn't match.", http.StatusBadRequest)
 		return
 	}
 
+	err = ScheduleMessage(data["body"], data["to"], data["time"])
 	if err != nil {
 		errlogger.Println(err)
-		writeJSON(w, map[string]string{"type": "api_error", "message": "Something went wrong while scheduling the message."}, http.StatusInternalServerError)
-	}
-
-	err = ScheduleMessage(msg)
-	if err != nil {
-		errlogger.Println(err)
-		writeJSON(w, map[string]string{"type": "api_error", "message": "Something went wrong while scheduling the message."}, http.StatusInternalServerError)
+		writeJSONError(w, SCHEDULE_MSG_ERR_S, http.StatusInternalServerError)
 	}
 }
 
-func checkHandler(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
-	dec := json.NewDecoder(r.Body)
-	args := make(map[string]string)
-	if err := dec.Decode(&args); err != nil {
+func checkHandler(w http.ResponseWriter, r *http.Request, data map[string]string) {
+	verified, err := CheckNumberVerified(data["number"])
+	if err != nil {
 		errlogger.Println(err)
-		writeJSON(w, map[string]string{"type": "api_error", "message": "Something went wrong while checking if phone number is verified."}, http.StatusInternalServerError)
+		writeJSONError(w, VERIFY_ERR_S, http.StatusInternalServerError)
 		return
 	}
 
-	// TODO: also mention if passsword created for number if the number has been verified
-	verified, err := CheckNumberVerified(args["number"])
+	writeJSON(w, map[string]interface{}{"verified": verified}, http.StatusOK)
+}
+
+func sendVerificationHandler(w http.ResponseWriter, r *http.Request, data map[string]string) {
+	code, err := MakeVerificationCode(data["number"])
 	if err != nil {
 		errlogger.Println(err)
-		writeJSON(w, map[string]string{"type": "api_error", "message": "Something went wrong while checking if phone number is verified."}, http.StatusInternalServerError)
+		writeJSONError(w, SEND_VERIFY_ERR_S, http.StatusInternalServerError)
 		return
 	}
-	enc := json.NewEncoder(w)
-	if err = enc.Encode(&map[string]bool{"verified": verified}); err != nil {
+
+	err = SendTwilioMessage(data["number"], fmt.Sprintf("Your verification code for TextRemind is %s.", code))
+	if err != nil {
 		errlogger.Println(err)
-		writeJSON(w, map[string]string{"type": "api_error", "message": "Something went wrong while checking if phone number is verified."}, http.StatusInternalServerError)
+		writeJSONError(w, SEND_VERIFY_ERR_S, http.StatusInternalServerError)
 	}
 }
 
-func sendVerificationHandler(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
-	dec := json.NewDecoder(r.Body)
-	args := make(map[string]string)
-	if err := dec.Decode(&args); err != nil {
-		errlogger.Println(err)
-		writeJSON(w, map[string]string{"type": "api_error", "message": "Something went wrong while sending verification code."}, http.StatusInternalServerError)
-		return
-	}
-
-	code, err := MakeVerificationCode(args["number"])
+func checkVerificationHandler(w http.ResponseWriter, r *http.Request, data map[string]string) {
+	valid, err := CheckVerificationCode(data["code"], data["number"])
 	if err != nil {
 		errlogger.Println(err)
-		writeJSON(w, map[string]string{"type": "api_error", "message": "Something went wrong while sending verification code."}, http.StatusInternalServerError)
-		return
-	}
-
-	err = SendTwilioMessage(args["number"], fmt.Sprintf("Your verification code for TextRemind is %s.", code))
-	if err != nil {
-		errlogger.Println(err)
-		writeJSON(w, map[string]string{"type": "api_error", "message": "Something went wrong while sending verification code."}, http.StatusInternalServerError)
-	}
-}
-
-func checkVerificationHandler(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
-	dec := json.NewDecoder(r.Body)
-	args := make(map[string]string)
-	if err := dec.Decode(&args); err != nil {
-		errlogger.Println(err)
-		writeJSON(w, map[string]string{"type": "api_error", "message": "Something went wrong while checking verification code."}, http.StatusInternalServerError)
-		return
-	}
-
-	valid, err := CheckVerificationCode(args["code"], args["number"])
-	if err != nil {
-		errlogger.Println(err)
-		writeJSON(w, map[string]string{"type": "api_error", "message": "Something went wrong while checking verification code."}, http.StatusInternalServerError)
+		writeJSONError(w, CHECK_VERIFY_ERR_S, http.StatusInternalServerError)
 		return
 	}
 
 	if valid {
-		MarkOnlyNumberVerified(args["number"])
+		MarkOnlyNumberVerified(data["number"])
 	}
 
-	enc := json.NewEncoder(w)
-	if err = enc.Encode(&map[string]bool{"valid": valid}); err != nil {
-		errlogger.Println(err)
-		writeJSON(w, map[string]string{"type": "api_error", "message": "Something went wrong while checking verification code."}, http.StatusInternalServerError)
-	}
+	writeJSON(w, map[string]interface{}{"valid": valid}, http.StatusOK)
 }
 
-func setPasswordHandler(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
-	dec := json.NewDecoder(r.Body)
-	args := make(map[string]string)
-	if err := dec.Decode(&args); err != nil {
-		errlogger.Println(err)
-		writeJSON(w, map[string]string{"type": "api_error", "message": "Something went wrong while setting password."}, http.StatusInternalServerError)
-		return
-	}
-
-	only_number_verified, err := CheckOnlyNumberVerified(args["number"])
+func setPasswordHandler(w http.ResponseWriter, r *http.Request, data map[string]string) {
+	only_number_verified, err := CheckOnlyNumberVerified(data["number"])
 	if only_number_verified {
-		err = SetPassword(args["number"], args["password"])
-		MarkNumberVerified(args["number"])
+		err = SetPassword(data["number"], data["password"])
 		if err != nil {
 			errlogger.Println(err)
-			writeJSON(w, map[string]string{"type": "api_error", "message": "Something went wrong while setting password."}, http.StatusInternalServerError)
+			writeJSONError(w, SET_PASSWORD_ERR_S, http.StatusInternalServerError)
 		}
+		MarkNumberVerified(data["number"])
 	} else {
-		writeJSON(w, map[string]string{"type": "invalid_request", "message": "This number has not been verified."}, http.StatusBadRequest)
+		writeJSONError(w, "This number has not been verified.", http.StatusBadRequest)
 	}
 }
 
-func checkPasswordHandler(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
-	dec := json.NewDecoder(r.Body)
-	args := make(map[string]string)
-	if err := dec.Decode(&args); err != nil {
-		errlogger.Println(err)
-		writeJSON(w, map[string]string{"type": "api_error", "message": "Something went wrong while checking password."}, http.StatusInternalServerError)
-		return
-	}
-
-	verified, err := CheckNumberVerified(args["number"])
+func checkPasswordHandler(w http.ResponseWriter, r *http.Request, data map[string]string) {
+	verified, err := CheckNumberVerified(data["number"])
 	if err != nil {
 		errlogger.Println(err)
-		http.Error(w, "Something went wrong while setting password.", http.StatusInternalServerError)
+		writeJSONError(w, CHECK_PASSWORD_ERR_S, http.StatusBadRequest)
+		return
 	}
 
 	if verified {
-		matches, err := CheckPassword(args["number"], args["password"])
+		matches, err := CheckPassword(data["number"], data["password"])
 		if err != nil {
 			errlogger.Println(err)
-			writeJSON(w, map[string]string{"type": "invalid_request", "message": "Something went wrong while checking password."}, http.StatusBadRequest)
+			writeJSONError(w, CHECK_PASSWORD_ERR_S, http.StatusBadRequest)
+			return
 		}
-
-		enc := json.NewEncoder(w)
-		if err = enc.Encode(&map[string]bool{"matches": matches}); err != nil {
-			errlogger.Println(err)
-			writeJSON(w, map[string]string{"type": "api_error", "message": "Something went wrong while checking verification code."}, http.StatusInternalServerError)
-		}
+		writeJSON(w, map[string]interface{}{"matches": matches}, http.StatusOK)
 	} else {
-		writeJSON(w, map[string]string{"type": "invalid_request", "message": "This number has not been verified."}, http.StatusBadRequest)
+		writeJSONError(w, "This number hasn't been verified.", http.StatusBadRequest)
 	}
 }
 

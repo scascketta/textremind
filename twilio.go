@@ -6,12 +6,19 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"strconv"
+	"os"
 	"strings"
 )
 
+var (
+	TWILIO_ACCOUNT_SID string = os.Getenv("TWILIO_ACCOUNT_SID")
+	TWILIO_AUTH_TOKEN  string = os.Getenv("TWILIO_AUTH_TOKEN")
+	TWILIO_NUMBER      string = os.Getenv("TWILIO_NUMBER")
+	TWILIO_BASE_URL    string = fmt.Sprintf("https://api.twilio.com/2010-04-01/Accounts/%s/Messages.json", TWILIO_ACCOUNT_SID)
+)
+
 // Schedule a message to be sent to msg.To at msg.Time
-func ScheduleMessage(msg ScheduleMsgStruct) error {
+func ScheduleMessage(body, to, time string) error {
 	uid, _ := uuid.NewV4()
 	id := uid.String()
 
@@ -19,14 +26,14 @@ func ScheduleMessage(msg ScheduleMsgStruct) error {
 	defer c.Close()
 
 	c.Send("MULTI")
-	c.Send("ZADD", "messages", strconv.Itoa(msg.Time), id)
-	c.Send("HSET", id, "body", msg.Body)
-	c.Send("HSET", id, "to", msg.To)
+	c.Send("ZADD", "messages", time, id)
+	c.Send("HSET", id, "body", body)
+	c.Send("HSET", id, "to", to)
 	_, err := c.Do("EXEC")
 	if err != nil {
 		return nil
 	}
-	dbglogger.Printf("Message scheduled successfully for delivery at: %d", msg.Time)
+	dbglogger.Printf("Message scheduled successfully for delivery at: %s", time)
 	return nil
 }
 

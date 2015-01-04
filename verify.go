@@ -67,10 +67,7 @@ func CheckNumberVerified(number string) (bool, error) {
 	defer c.Close()
 
 	verified, err := redis.Bool(c.Do("SISMEMBER", "verified", number))
-	if err != nil {
-		return false, err
-	}
-	return verified, nil
+	return verified, err
 }
 
 func CheckOnlyNumberVerified(number string) (bool, error) {
@@ -78,8 +75,5 @@ func CheckOnlyNumberVerified(number string) (bool, error) {
 	defer c.Close()
 
 	verified, err := redis.Bool(c.Do("SISMEMBER", "only_number_verified", number))
-	if err != nil {
-		return false, err
-	}
-	return verified, nil
+	return verified, err
 }
