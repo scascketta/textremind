@@ -53,7 +53,7 @@ function TextRemind() {
 
 
     self.numberVerified = asyncComputed(function() {
-        return requests.postJSON(BASE_URL + '/check', { number: self.phoneNumber() })
+        return requests.get(BASE_URL + '/check', { number: self.phoneNumber() })
             .then(function(res) {
                 return res.verified;
             });
@@ -85,7 +85,7 @@ function TextRemind() {
     });
     self.codeMatches = asyncComputed(function() {
         var data = { number: self.phoneNumber(), code: self.code() };
-        return requests.postJSON(BASE_URL + '/check_verification', data)
+        return requests.get(BASE_URL + '/check_verification', data)
             .then(function(res) {
                 return res.valid;
             });

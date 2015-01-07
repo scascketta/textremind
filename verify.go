@@ -7,9 +7,9 @@ import (
 	"strconv"
 )
 
-func SetPassword(number, password string) error {
+func SetPassword(number string, password []byte) error {
 	c := GetConn()
-	hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	hashed, err := bcrypt.GenerateFromPassword(password, bcrypt.DefaultCost)
 	if err != nil {
 		return err
 	}
@@ -17,14 +17,14 @@ func SetPassword(number, password string) error {
 	return err
 }
 
-func CheckPassword(number, password string) (bool, error) {
+func CheckPassword(number string, password []byte) (bool, error) {
 	c := GetConn()
 	hashed, err := redis.String(c.Do("HGET", number, "password"))
 	if err != nil {
 		return false, err
 	}
 	// CompareHashAndPassword() returns nil if passwords match
-	matches := bcrypt.CompareHashAndPassword([]byte(hashed), []byte(password)) == nil
+	matches := bcrypt.CompareHashAndPassword([]byte(hashed), password) == nil
 	return matches, nil
 }
 
@@ -35,10 +35,7 @@ func MakeVerificationCode(number string) (string, error) {
 	}
 	c := GetConn()
 	_, err := c.Do("HSET", number, "code", code)
-	if err != nil {
-		return "", err
-	}
-	return code, nil
+	return code, err
 }
 
 func CheckVerificationCode(code, number string) (bool, error) {

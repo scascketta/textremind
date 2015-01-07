@@ -7,7 +7,7 @@ import (
 )
 
 // Adds `Access-Control-*` headers to response
-func corsMiddleware(fn func(http.ResponseWriter, *http.Request)) http.HandlerFunc {
+func CorsMiddleware(fn func(http.ResponseWriter, *http.Request)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "OPTIONS" {
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST")
@@ -25,7 +25,7 @@ func corsMiddleware(fn func(http.ResponseWriter, *http.Request)) http.HandlerFun
 }
 
 // Decodes JSON from request, passes decoded data to handler
-func decodeJSONMiddleware(fn func(http.ResponseWriter, *http.Request, map[string]string)) http.HandlerFunc {
+func DecodeJSONMiddleware(fn func(http.ResponseWriter, *http.Request, map[string]string)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		data, err := decodeJSON(w, r)
 		if err != nil {
@@ -36,20 +36,24 @@ func decodeJSONMiddleware(fn func(http.ResponseWriter, *http.Request, map[string
 }
 
 // Decodes JSON from request, returns decoded map or err if couldn't decode
+// Limited to decoding strings only. Could return a map[string]interface{}
+// and type assert in handlers, but not for this project
 func decodeJSON(w http.ResponseWriter, r *http.Request) (map[string]string, error) {
 	defer r.Body.Close()
 	dec := json.NewDecoder(r.Body)
 	data := make(map[string]string)
 	if err := dec.Decode(&data); err != nil {
 		errlogger.Println(err)
-		writeJSONError(w, DECODE_ERR_S, http.StatusBadRequest)
+		WriteJSONError(w, DECODE_ERR_S, http.StatusBadRequest)
 		return nil, err
 	}
 	return data, nil
 }
 
 // Encode JSON data, sets content-type, return err if problem encoding data
-func writeJSON(w http.ResponseWriter, data map[string]interface{}, code int) error {
+// logs an error on its own to let caller use this function with less hassle
+// when encoding responses
+func WriteJSON(w http.ResponseWriter, data map[string]interface{}, code int) error {
 	w.Header().Set("Content-Type", "application/json")
 	enc := json.NewEncoder(w)
 	w.WriteHeader(code)
@@ -61,6 +65,6 @@ func writeJSON(w http.ResponseWriter, data map[string]interface{}, code int) err
 }
 
 // Writes msg as JSON to request with given code
-func writeJSONError(w http.ResponseWriter, msg string, code int) {
-	writeJSON(w, map[string]interface{}{"message": msg}, code)
+func WriteJSONError(w http.ResponseWriter, msg string, code int) {
+	WriteJSON(w, map[string]interface{}{"message": msg}, code)
 }

@@ -36,110 +36,95 @@ func main() {
 	// Scheduled messages are dispatched in a new goroutine
 	go DispatchMessages()
 
-	http.HandleFunc("/schedule", corsMiddleware(decodeJSONMiddleware(scheduleHandler)))
-	http.HandleFunc("/check", corsMiddleware(decodeJSONMiddleware(checkHandler)))
-	http.HandleFunc("/send_verification", corsMiddleware(decodeJSONMiddleware(sendVerificationHandler)))
-	http.HandleFunc("/check_verification", corsMiddleware(decodeJSONMiddleware(checkVerificationHandler)))
-	http.HandleFunc("/set_password", corsMiddleware(decodeJSONMiddleware(setPasswordHandler)))
-	http.HandleFunc("/check_password", corsMiddleware(decodeJSONMiddleware(checkPasswordHandler)))
+	http.HandleFunc("/schedule", CorsMiddleware(DecodeJSONMiddleware(schedule)))
+	http.HandleFunc("/check", CorsMiddleware(check))
+	http.HandleFunc("/send_verification", CorsMiddleware(DecodeJSONMiddleware(sendVerification)))
+	http.HandleFunc("/check_verification", CorsMiddleware(checkVerification))
+	http.HandleFunc("/set_password", CorsMiddleware(DecodeJSONMiddleware(setPassword)))
 
 	dbglogger.Printf("Server listening on port %s...\n", PORT)
 	http.ListenAndServe(":"+PORT, nil)
 }
 
 // Handle requests to schedule messages
-func scheduleHandler(w http.ResponseWriter, r *http.Request, data map[string]string) {
-	matches, err := CheckPassword(data["to"], data["password"])
+func schedule(w http.ResponseWriter, r *http.Request, data map[string]string) {
+	matches, err := CheckPassword(data["to"], []byte(data["password"]))
 	if err != nil {
 		errlogger.Println(err)
-		writeJSONError(w, SCHEDULE_MSG_ERR_S, http.StatusInternalServerError)
+		WriteJSONError(w, SCHEDULE_MSG_ERR_S, http.StatusInternalServerError)
 		return
 	}
 	if !matches {
-		writeJSONError(w, "Password doesn't match.", http.StatusBadRequest)
+		WriteJSONError(w, "Password doesn't match.", http.StatusBadRequest)
 		return
 	}
 
 	err = ScheduleMessage(data["body"], data["to"], data["time"])
 	if err != nil {
 		errlogger.Println(err)
-		writeJSONError(w, SCHEDULE_MSG_ERR_S, http.StatusInternalServerError)
+		WriteJSONError(w, SCHEDULE_MSG_ERR_S, http.StatusInternalServerError)
 	}
 }
 
-func checkHandler(w http.ResponseWriter, r *http.Request, data map[string]string) {
-	verified, err := CheckNumberVerified(data["number"])
+func check(w http.ResponseWriter, r *http.Request) {
+	v := r.URL.Query()
+	number := v.Get("number")
+
+	verified, err := CheckNumberVerified(number)
 	if err != nil {
 		errlogger.Println(err)
-		writeJSONError(w, VERIFY_ERR_S, http.StatusInternalServerError)
+		WriteJSONError(w, VERIFY_ERR_S, http.StatusInternalServerError)
 		return
 	}
 
-	writeJSON(w, map[string]interface{}{"verified": verified}, http.StatusOK)
+	WriteJSON(w, map[string]interface{}{"verified": verified}, http.StatusOK)
 }
 
-func sendVerificationHandler(w http.ResponseWriter, r *http.Request, data map[string]string) {
+func sendVerification(w http.ResponseWriter, r *http.Request, data map[string]string) {
 	code, err := MakeVerificationCode(data["number"])
 	if err != nil {
 		errlogger.Println(err)
-		writeJSONError(w, SEND_VERIFY_ERR_S, http.StatusInternalServerError)
+		WriteJSONError(w, SEND_VERIFY_ERR_S, http.StatusInternalServerError)
 		return
 	}
 
 	err = SendTwilioMessage(data["number"], fmt.Sprintf("Your verification code for TextRemind is %s.", code))
 	if err != nil {
 		errlogger.Println(err)
-		writeJSONError(w, SEND_VERIFY_ERR_S, http.StatusInternalServerError)
+		WriteJSONError(w, SEND_VERIFY_ERR_S, http.StatusInternalServerError)
 	}
 }
 
-func checkVerificationHandler(w http.ResponseWriter, r *http.Request, data map[string]string) {
-	valid, err := CheckVerificationCode(data["code"], data["number"])
+func checkVerification(w http.ResponseWriter, r *http.Request) {
+	v := r.URL.Query()
+	code := v.Get("code")
+	number := v.Get("number")
+
+	valid, err := CheckVerificationCode(code, number)
 	if err != nil {
 		errlogger.Println(err)
-		writeJSONError(w, CHECK_VERIFY_ERR_S, http.StatusInternalServerError)
+		WriteJSONError(w, CHECK_VERIFY_ERR_S, http.StatusInternalServerError)
 		return
 	}
 
 	if valid {
-		MarkOnlyNumberVerified(data["number"])
+		MarkOnlyNumberVerified(number)
 	}
 
-	writeJSON(w, map[string]interface{}{"valid": valid}, http.StatusOK)
+	WriteJSON(w, map[string]interface{}{"valid": valid}, http.StatusOK)
 }
 
-func setPasswordHandler(w http.ResponseWriter, r *http.Request, data map[string]string) {
+func setPassword(w http.ResponseWriter, r *http.Request, data map[string]string) {
 	only_number_verified, err := CheckOnlyNumberVerified(data["number"])
 	if only_number_verified {
-		err = SetPassword(data["number"], data["password"])
+		err = SetPassword(data["number"], []byte(data["password"]))
 		if err != nil {
 			errlogger.Println(err)
-			writeJSONError(w, SET_PASSWORD_ERR_S, http.StatusInternalServerError)
+			WriteJSONError(w, SET_PASSWORD_ERR_S, http.StatusInternalServerError)
 		}
 		MarkNumberVerified(data["number"])
 	} else {
-		writeJSONError(w, "This number has not been verified.", http.StatusBadRequest)
-	}
-}
-
-func checkPasswordHandler(w http.ResponseWriter, r *http.Request, data map[string]string) {
-	verified, err := CheckNumberVerified(data["number"])
-	if err != nil {
-		errlogger.Println(err)
-		writeJSONError(w, CHECK_PASSWORD_ERR_S, http.StatusBadRequest)
-		return
-	}
-
-	if verified {
-		matches, err := CheckPassword(data["number"], data["password"])
-		if err != nil {
-			errlogger.Println(err)
-			writeJSONError(w, CHECK_PASSWORD_ERR_S, http.StatusBadRequest)
-			return
-		}
-		writeJSON(w, map[string]interface{}{"matches": matches}, http.StatusOK)
-	} else {
-		writeJSONError(w, "This number hasn't been verified.", http.StatusBadRequest)
+		WriteJSONError(w, "This number has not been verified.", http.StatusBadRequest)
 	}
 }
 
