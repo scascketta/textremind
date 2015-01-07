@@ -27,6 +27,9 @@ const (
 var (
 	dbglogger *log.Logger = log.New(os.Stdout, "[DBG] ", log.LstdFlags|log.Lshortfile)
 	errlogger *log.Logger = log.New(os.Stderr, "[ERR] ", log.LstdFlags|log.Lshortfile)
+
+	HTTP_CLIENT *http.Client = &http.Client{}
+	ENV         string       = os.Getenv("TEXTREMIND_ENV")
 )
 
 func main() {
@@ -88,7 +91,7 @@ func sendVerification(w http.ResponseWriter, r *http.Request, data map[string]st
 		return
 	}
 
-	err = SendTwilioMessage(data["number"], fmt.Sprintf("Your verification code for TextRemind is %s.", code))
+	err = SendTwilioMessage(HTTP_CLIENT, data["number"], fmt.Sprintf("Your verification code for TextRemind is %s.", code))
 	if err != nil {
 		errlogger.Println(err)
 		WriteJSONError(w, SEND_VERIFY_ERR_S, http.StatusInternalServerError)

@@ -27,7 +27,7 @@ func DispatchMessages() {
 		for _, uid := range uids {
 			body, _ := redis.String(c.Do("HGET", uid, "body"))
 			to, _ := redis.String(c.Do("HGET", uid, "to"))
-			err := SendTwilioMessage(to, body)
+			err := SendTwilioMessage(HTTP_CLIENT, to, body)
 			if err != nil {
 				errlogger.Println(err)
 				continue
