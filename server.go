@@ -28,8 +28,7 @@ var (
 	dbglogger *log.Logger = log.New(os.Stdout, "[DBG] ", log.LstdFlags|log.Lshortfile)
 	errlogger *log.Logger = log.New(os.Stderr, "[ERR] ", log.LstdFlags|log.Lshortfile)
 
-	HTTP_CLIENT *http.Client = &http.Client{}
-	ENV         string       = os.Getenv("TEXTREMIND_ENV")
+	HTTP_CLIENT *Client = &Client{URL: TWILIO_URL, HTTPClient: &http.Client{}}
 )
 
 func main() {
