@@ -65,15 +65,15 @@ function TextRemind() {
             validator: function(deliveryTime, _) {
                 return Date.future(deliveryTime).isValid();
             },
-            message: "Specified time is not valid or is in the past.",
+            message: "Specified time is not valid or is in the past. Please try a different format.",
             params: null
         }
     });
 
     self.password = ko.observable('').extend({
         required: false,
-        minLength: 6,
-        maxLength: 20
+        minLength: 10,
+        maxLength: 128
     });
     self.passwordSet = ko.observable(false);
 
