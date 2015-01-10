@@ -6,6 +6,10 @@ import (
 	"testing"
 )
 
+func TestEnvVars(t *testing.T) {
+	checkRequiredEnvVars(ENV_VARS)
+}
+
 func TestBadRequest(t *testing.T) {
 	sc := 400
 	rb := `{"code": 20003, "detail": "Your AccountSid or AuthToken was incorrect.", "message": "Authentication Error - No credentials provided", "more_info": "https://www.twilio.com/docs/errors/20003", "status": 401}`
@@ -57,7 +61,7 @@ func TestRequestDetails(t *testing.T) {
 		params := []string{"To", "Body", "From"}
 		for _, p := range params {
 			if r.PostForm.Get(p) == "" {
-				ErrorWithCode(t, w, fmt.Sprintf("Param %s not present in request body.", p), http.StatusBadRequest)
+				ErrorWithCode(t, w, fmt.Sprintf("Param '%s' not present in request body.", p), http.StatusBadRequest)
 			}
 		}
 		w.WriteHeader(200)

@@ -28,10 +28,13 @@ var (
 	dbglogger *log.Logger = log.New(os.Stdout, "[DBG] ", log.LstdFlags|log.Lshortfile)
 	errlogger *log.Logger = log.New(os.Stderr, "[ERR] ", log.LstdFlags|log.Lshortfile)
 
-	HTTP_CLIENT *Client = &Client{URL: TWILIO_URL, HTTPClient: &http.Client{}}
+	ENV_VARS    []string = []string{"TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_NUMBER"}
+	HTTP_CLIENT *Client  = &Client{URL: TWILIO_URL, HTTPClient: &http.Client{}}
 )
 
 func main() {
+	checkRequiredEnvVars(ENV_VARS)
+
 	// Seed PRNG for generating verification codes
 	rand.Seed(time.Now().UTC().UnixNano())
 
@@ -46,6 +49,14 @@ func main() {
 
 	dbglogger.Printf("Server listening on port %s...\n", PORT)
 	http.ListenAndServe(":"+PORT, nil)
+}
+
+func checkRequiredEnvVars(env_vars []string) {
+	for _, ev := range env_vars {
+		if os.Getenv(ev) == "" {
+			errlogger.Fatalf("Env var '%s' not present.", ev)
+		}
+	}
 }
 
 // Handle requests to schedule messages
