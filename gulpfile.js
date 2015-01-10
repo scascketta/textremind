@@ -20,6 +20,17 @@ gulp.task('browserify-app', function() {
     })
 
     var bundle = function() {
+        bundler
+            .bundle()
+            .on('error', function(e) {
+                gutil.log(gutil.colors.red("something broke", e.toString()));
+                this.emit('end');
+            })
+            .pipe(source('./static/js/bundle.js'))
+            .pipe(gulp.dest('.'))
+            .on('end', function() {
+                gutil.log(gutil.colors.blue("browserify finished"));
+            });
         return bundler
             .bundle()
             .on('error', function(e) {
@@ -45,12 +56,14 @@ gulp.task('build-css', function() {
     return gulp.src(src)
         .pipe(cssmin())
         .pipe(concat('bundle.css'))
-        .pipe(gulp.dest('./dist/css'));
+        .pipe(gulp.dest('./dist/css'))
+        .pipe(gulp.dest('./static/css'));
 });
 
 gulp.task('build-html', function() {
     var html = gulp.src('./static/index.html')
-        .pipe(gulp.dest('./dist/'));
+        .pipe(gulp.dest('./dist/'))
+        .pipe(gulp.dest('./static'));
 });
 
 gulp.task('_serve', function() {

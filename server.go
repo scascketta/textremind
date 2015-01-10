@@ -28,8 +28,9 @@ var (
 	dbglogger *log.Logger = log.New(os.Stdout, "[DBG] ", log.LstdFlags|log.Lshortfile)
 	errlogger *log.Logger = log.New(os.Stderr, "[ERR] ", log.LstdFlags|log.Lshortfile)
 
-	ENV_VARS    []string = []string{"TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_NUMBER"}
+	ENV_VARS    []string = []string{"TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_NUMBER", "TEXTREMIND_ENV"}
 	HTTP_CLIENT *Client  = &Client{URL: TWILIO_URL, HTTPClient: &http.Client{}}
+	ENV         string   = os.Getenv("TEXTREMIND_ENV")
 )
 
 func main() {
@@ -46,6 +47,9 @@ func main() {
 	http.HandleFunc("/send_verification", CorsMiddleware(DecodeJSONMiddleware(sendVerification)))
 	http.HandleFunc("/check_verification", CorsMiddleware(checkVerification))
 	http.HandleFunc("/set_password", CorsMiddleware(DecodeJSONMiddleware(setPassword)))
+	if ENV == "PROD" {
+		http.Handle("/", http.FileServer(http.Dir("static/")))
+	}
 
 	dbglogger.Printf("Server listening on port %s...\n", PORT)
 	http.ListenAndServe(":"+PORT, nil)
