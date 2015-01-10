@@ -7,10 +7,8 @@ import (
 	"testing"
 )
 
-// Returns an *http.Client which will receive a response containing
+// Returns an *Client which will receive a response containing
 // body, headers, and status code specified. Must close received server.
-// Proxies all requests made using returned client to a httptest.Server
-// which uses an http.Handler to handle requests.
 // See: http://keighl.com/post/mocking-http-responses-in-golang/
 func MockClient(code int, body []byte, headers map[string]string) (*Client, *httptest.Server) {
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
