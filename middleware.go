@@ -2,9 +2,14 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 )
+
+func HTTPSRedirect(w http.ResponseWriter, r *http.Request) {
+	http.Redirect(w, r, fmt.Sprintf("https://%s:%s%s", SERVER_ADDR, SERVER_PORT, r.RequestURI), http.StatusMovedPermanently)
+}
 
 // Adds `Access-Control-*` headers to response
 func CorsMiddleware(fn func(http.ResponseWriter, *http.Request)) http.HandlerFunc {

@@ -4,14 +4,12 @@ var when = require('when');
 var sugar  = require('sugar');
 var requests  = require('./requests');
 
-var BASE_URL = 'http://127.0.0.1:8000';
-
 ko.validation.configure({
     insertMessages: false
 });
 
 // NOTE: https://github.com/knockout/knockout/wiki/Asynchronous-Dependent-Observables
-function asyncComputed(evaluator, dependencies) {
+var asyncComputed = function asyncComputed(evaluator, dependencies) {
     var result = ko.observable();
 
     ko.computed(function() {
@@ -53,7 +51,7 @@ function TextRemind() {
 
 
     self.numberVerified = asyncComputed(function() {
-        return requests.get(BASE_URL + '/check', { number: self.phoneNumber() })
+        return requests.get('check', { number: self.phoneNumber() })
             .then(function(res) {
                 return res.verified;
             });
@@ -85,7 +83,7 @@ function TextRemind() {
     });
     self.codeMatches = asyncComputed(function() {
         var data = { number: self.phoneNumber(), code: self.code() };
-        return requests.get(BASE_URL + '/check_verification', data)
+        return requests.get('check_verification', data)
             .then(function(res) {
                 return res.valid;
             });
@@ -109,7 +107,7 @@ function TextRemind() {
 TextRemind.prototype.schedule = function schedule() {
     var self = this;
 
-    requests.postJSON(BASE_URL + '/schedule', {
+    requests.postJSON('schedule', {
         body: self.message(),
         password: self.password(),
         to: self.phoneNumber(),
@@ -129,7 +127,7 @@ TextRemind.prototype.sendCode = function sendCode() {
     // FIXME: use a button to send the code, and disable the button if number is verified
     if (self.numberVerified()) return;
 
-    requests.postJSON(BASE_URL + '/send_verification', {
+    requests.postJSON('send_verification', {
         number: self.phoneNumber()
     }).then(function(res) {
         self.codeSent(true);
@@ -143,7 +141,7 @@ TextRemind.prototype.setPassword = function setPassword() {
     var self = this;
     if (!self.password.isValid()) return;
 
-    requests.postJSON(BASE_URL + '/set_password', {
+    requests.postJSON('set_password', {
         number: self.phoneNumber(),
         password: self.password()
     }).then(function(res) {

@@ -82,3 +82,4 @@ gulp.task('watch', function() {
 
 gulp.task('build', ['build-css', 'build-html', 'browserify-app']);
 gulp.task('serve', ['build-css', 'build-html', 'browserify-app', '_serve', 'watch']);
+gulp.task('autobuild', ['build-css', 'build-html', 'browserify-app', 'watch']);

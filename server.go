@@ -7,13 +7,11 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 )
 
 const (
-	// Would make this an int to be proper, but it's only used as a string
-	PORT = "8000"
-
 	ERR_S                = "Something went wrong while "
 	SCHEDULE_MSG_ERR_S   = ERR_S + "scheduling the message."
 	VERIFY_ERR_S         = ERR_S + "checking if phone number is verified."
@@ -28,9 +26,11 @@ var (
 	dbglogger *log.Logger = log.New(os.Stdout, "[DBG] ", log.LstdFlags|log.Lshortfile)
 	errlogger *log.Logger = log.New(os.Stderr, "[ERR] ", log.LstdFlags|log.Lshortfile)
 
-	ENV_VARS    []string = []string{"TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_NUMBER", "TEXTREMIND_ENV"}
+	ENV_VARS    []string = []string{"TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_NUMBER", "TEXTREMIND_ENV", "TEXTREMIND_ADDR", "TEXTREMIND_PORT"}
 	HTTP_CLIENT *Client  = &Client{URL: TWILIO_URL, HTTPClient: &http.Client{}}
 	ENV         string   = os.Getenv("TEXTREMIND_ENV")
+	SERVER_ADDR string   = os.Getenv("TEXTREMIND_ADDR")
+	SERVER_PORT string   = os.Getenv("TEXTREMIND_PORT")
 )
 
 func main() {
@@ -47,18 +47,47 @@ func main() {
 	http.HandleFunc("/send_verification", CorsMiddleware(DecodeJSONMiddleware(sendVerification)))
 	http.HandleFunc("/check_verification", CorsMiddleware(checkVerification))
 	http.HandleFunc("/set_password", CorsMiddleware(DecodeJSONMiddleware(setPassword)))
-	if ENV == "PROD" {
-		http.Handle("/", http.FileServer(http.Dir("static/")))
-	}
+	http.Handle("/", http.FileServer(http.Dir("static/")))
 
-	dbglogger.Printf("Server listening on port %s...\n", PORT)
-	http.ListenAndServe(":"+PORT, nil)
+	startServer()
 }
 
 func checkRequiredEnvVars(env_vars []string) {
+	missing := make([]string, 0)
+
 	for _, ev := range env_vars {
 		if os.Getenv(ev) == "" {
-			errlogger.Fatalf("Env var '%s' not present.", ev)
+			missing = append(missing, ev)
+		}
+	}
+
+	if len(missing) > 0 {
+		missing_msg := strings.Join(missing, "\n")
+		errlogger.Fatalf("The following environment variables are missing:\n%s", missing_msg)
+	}
+}
+
+func startServer() {
+	if ENV == "DEV" {
+		dbglogger.Printf("HTTP server listening on %s:%s\n", SERVER_ADDR, SERVER_PORT)
+		err := http.ListenAndServe(SERVER_ADDR+":"+SERVER_PORT, nil)
+		if err != nil {
+			errlogger.Fatal("Problem starting HTTP server:", err)
+		}
+	} else {
+
+		// Start HTTPS and HTTP server, HTTP server redirects to HTTPS server.
+		go func() {
+			dbglogger.Printf("HTTPS server listening on %s:443\n", SERVER_ADDR)
+			err := http.ListenAndServeTLS(SERVER_ADDR+":443", "textremind.net.cert", "textremind.net.key", nil)
+			if err != nil {
+				errlogger.Fatal("Problem starting HTTPS server:", err)
+			}
+		}()
+
+		dbglogger.Printf("HTTP server listening on %s:80\n", SERVER_ADDR)
+		if err := http.ListenAndServe(SERVER_ADDR+":80", http.HandlerFunc(HTTPSRedirect)); err != nil {
+			errlogger.Fatal("Problem starting HTTP server:", err)
 		}
 	}
 }
