@@ -8,7 +8,7 @@ import (
 )
 
 func HTTPSRedirect(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, fmt.Sprintf("https://%s:443%s", SERVER_ADDR, r.RequestURI), http.StatusMovedPermanently)
+	http.Redirect(w, r, fmt.Sprintf("https://textremind.net%s", r.RequestURI), http.StatusMovedPermanently)
 }
 
 // Adds `Access-Control-*` headers to response
