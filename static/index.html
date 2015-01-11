@@ -36,6 +36,7 @@
                 <div data-bind="visible: codeMatches()">
                     <p>if you want to send yourself reminders without having to verify again, please set a password. otherwise, skip this part.</p>
                     <label for="setPasswordInput">set your new password below</label>
+                    <p class="validationError" data-bind="validationMessage: password"></p>
                     <input type="password" id="setPasswordInput" data-bind="value: password">
                     <button class="button" data-bind="click: setPassword">Save Password</button>
                     <p data-bind="visible: passwordSet()"><i class="fa fa-check-circle"></i> password set!</p>
